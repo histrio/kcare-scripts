@@ -111,13 +111,37 @@ def myprint(silent, message):
 def main():
     """
     if --silent or -q argument provided, don't print anything, just use exit code
+    if --report provided, show system information for support
     otherwise print results (COMPATIBLE or support contact messages)
     else exit with 0 if COMPATIBLE, 1 or more otherwise
     """
     silent = len(sys.argv) > 1 and (sys.argv[1] == '--silent' or sys.argv[1] == '-q')
+    report = len(sys.argv) > 1 and sys.argv[1] == '--report'
+
     if inside_vz_container() or inside_lxc_container():
         myprint(silent, "UNSUPPORTED; INSIDE CONTAINER")
         return 2
+
+    # Get system information once for both report and compatibility checking
+    kernel_hash = get_kernel_hash()
+    distro_name = get_distro_info()
+
+    # Show system information for support if --report flag is used
+    if report:
+        print("=== KernelCare Compatibility Report ===")
+        print(f"Kernel Hash: {kernel_hash}")
+        print(f"Distribution: {distro_name or 'Unknown'}")
+        print(f"Version: Not available")
+
+        # Get kernel version from /proc/version
+        try:
+            with open('/proc/version', 'r') as f:
+                kernel_version = f.read().strip()
+                print(f"Kernel: {kernel_version}")
+        except (IOError, OSError):
+            print("Kernel: Unable to read /proc/version")
+
+        print("=====================================")
     
     try:
         if is_compat():
@@ -125,7 +149,6 @@ def main():
             return 0
         else:
             # Handle 404 case - check if distro is supported
-            distro_name = get_distro_info()
             if distro_name and is_distro_supported(distro_name):
                 myprint(silent, "NEEDS REVIEW")
                 myprint(silent, "We support your distribution, but we're having trouble detecting your precise kernel configuration. Please, contact CloudLinux Inc. support by email at support@cloudlinux.com or by request form at https://www.cloudlinux.com/index.php/support")

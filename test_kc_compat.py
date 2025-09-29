@@ -200,6 +200,30 @@ class TestMain:
         assert result == 0
         mock_print.assert_not_called()
 
+    @patch('sys.argv', ['kc-compat.py', '--report'])
+    @patch.object(kc_compat, 'get_kernel_hash', return_value='abcdef123456')
+    @patch.object(kc_compat, 'get_distro_info', return_value='centos')
+    @patch.object(kc_compat, 'inside_vz_container', return_value=False)
+    @patch.object(kc_compat, 'inside_lxc_container', return_value=False)
+    @patch.object(kc_compat, 'is_compat', return_value=True)
+    @patch('builtins.open', new_callable=mock_open, read_data='Linux version 5.4.0-test')
+    @patch('builtins.print')
+    def test_main_report_mode(self, mock_print, mock_file, mock_compat, mock_lxc, mock_vz, mock_distro, mock_hash):
+        result = kc_compat.main()
+        assert result == 0
+        # Check that report header and information are printed, followed by COMPATIBLE
+        expected_calls = [
+            (("=== KernelCare Compatibility Report ===",),),
+            (("Kernel Hash: abcdef123456",),),
+            (("Distribution: centos",),),
+            (("Version: Not available",),),
+            (("Kernel: Linux version 5.4.0-test",),),
+            (("=====================================",),),
+            (("COMPATIBLE",),)
+        ]
+        mock_print.assert_has_calls(expected_calls)
+
+
     @patch('sys.argv', ['kc-compat.py'])
     @patch.object(kc_compat, 'inside_vz_container', return_value=False)
     @patch.object(kc_compat, 'inside_lxc_container', return_value=False)

@@ -43,8 +43,6 @@ def get_kernel_hash_from_data(version_data):
     return sha1(version_data).hexdigest()
 
 
-
-
 def inside_vz_container():
     """
     determines if we are inside Virtuozzo container
@@ -60,7 +58,7 @@ def inside_lxc_container():
 def get_distro_info():
     """
     Get current distribution name and version
-    :return: distro name or None if detection fails
+    :return: tuple of (distro_name, distro_version) or (None, None) if detection fails
     """
     
     def parse_value(line):
@@ -68,16 +66,21 @@ def get_distro_info():
     
     os_release_path = '/etc/os-release'
     if not os.path.exists(os_release_path):
-        return None
+        return None, None
 
     try:
+        distro_name = None
+        distro_version = None
         with open(os_release_path, 'r') as f:
             for line in f:
                 line = line.strip()
                 if line.startswith('ID='):
-                    return parse_value(line)
+                    distro_name = parse_value(line)
+                elif line.startswith('VERSION_ID='):
+                    distro_version = parse_value(line)
+        return distro_name, distro_version
     except (IOError, OSError):
-        return None
+        return None, None
 
 
 def is_distro_supported(distro_name):
@@ -127,13 +130,13 @@ def main():
         version_data = b''
     
     kernel_hash = get_kernel_hash_from_data(version_data)
-    distro_name = get_distro_info()
+    distro_name, distro_version = get_distro_info()
 
     if report:
         print("=== KernelCare Compatibility Report ===")
         print(f"Kernel Hash: {kernel_hash}")
         print(f"Distribution: {distro_name or 'Unknown'}")
-        print(f"Version: Not available")
+        print(f"Version: {distro_version or 'Unknown'}")
         print(f"Kernel: {version_data.decode('utf-8', errors='replace').strip()}")
         print("=====================================")
     

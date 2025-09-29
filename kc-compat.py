@@ -34,17 +34,15 @@ SUPPORTED_DISTROS = {
 }
 
 
-def get_kernel_hash():
+def get_kernel_hash_from_data(version_data):
     try:
         # noinspection PyCompatibility
         from hashlib import sha1
     except ImportError:
         from sha import sha as sha1
-    f = open('/proc/version', 'rb')
-    try:
-        return sha1(f.read()).hexdigest()
-    finally:
-        f.close()
+    return sha1(version_data).hexdigest()
+
+
 
 
 def inside_vz_container():
@@ -89,8 +87,8 @@ def is_distro_supported(distro_name):
     return distro_name in SUPPORTED_DISTROS
 
 
-def is_compat():
-    url = 'http://patches.kernelcare.com/' + get_kernel_hash() + '/version'
+def is_compat(kernel_hash):
+    url = 'http://patches.kernelcare.com/' + kernel_hash + '/version'
     try:
         urlopen(url)
         return True
@@ -122,29 +120,25 @@ def main():
         myprint(silent, "UNSUPPORTED; INSIDE CONTAINER")
         return 2
 
-    # Get system information once for both report and compatibility checking
-    kernel_hash = get_kernel_hash()
+    try:
+        with open('/proc/version', 'rb') as f:
+            version_data = f.read()
+    except (IOError, OSError):
+        version_data = b''
+    
+    kernel_hash = get_kernel_hash_from_data(version_data)
     distro_name = get_distro_info()
 
-    # Show system information for support if --report flag is used
     if report:
         print("=== KernelCare Compatibility Report ===")
         print(f"Kernel Hash: {kernel_hash}")
         print(f"Distribution: {distro_name or 'Unknown'}")
         print(f"Version: Not available")
-
-        # Get kernel version from /proc/version
-        try:
-            with open('/proc/version', 'r') as f:
-                kernel_version = f.read().strip()
-                print(f"Kernel: {kernel_version}")
-        except (IOError, OSError):
-            print("Kernel: Unable to read /proc/version")
-
+        print(f"Kernel: {version_data.decode('utf-8', errors='replace').strip()}")
         print("=====================================")
     
     try:
-        if is_compat():
+        if is_compat(kernel_hash):
             myprint(silent, "COMPATIBLE")
             return 0
         else:
